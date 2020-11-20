@@ -8,11 +8,10 @@
 namespace wbraganca\dynamicform;
 
 use Yii;
-use Symfony\Component\DomCrawler\Crawler;
-use Symfony\Component\CssSelector\CssSelector;
-use yii\helpers\Json;
 use yii\helpers\Html;
+use yii\helpers\Json;
 use yii\base\InvalidConfigException;
+use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * yii2-dynamicform is widget to yii2 framework to clone form elements in a nested manner, maintaining accessibility.
@@ -217,8 +216,10 @@ class DynamicFormWidget extends \yii\base\Widget
         $js .= "});\n";
         $view->registerJs($js, $view::POS_READY);
 
-        $js = 'jQuery("#' . $this->formId . '").yiiDynamicForm(' . $this->_hashVar .');' . "\n";
-        $view->registerJs($js, $view::POS_LOAD);
+        $js = 'jQuery("#' . $this->formId . '").on("afterInit", function(e) {' . "\n";
+        $js .= '    jQuery("#' . $this->formId . '").yiiDynamicForm(' . $this->_hashVar .');' . "\n";
+        $js .= "});\n";
+        $view->registerJs($js, $view::POS_READY);
     }
 
     /**
@@ -258,22 +259,14 @@ class DynamicFormWidget extends \yii\base\Widget
      */
     private function removeItems($content)
     {
-        $document = new \DOMDocument('1.0', \Yii::$app->charset);
         $crawler = new Crawler();
         $crawler->addHTMLContent($content, \Yii::$app->charset);
-        $root = $document->appendChild($document->createElement('_root'));
-        $crawler->rewind();
-        $root->appendChild($document->importNode($crawler->current(), true));
-        $domxpath = new \DOMXPath($document);
-        $crawlerInverse = $domxpath->query(CssSelector::toXPath($this->widgetItem));
+        $crawler->filter($this->widgetItem)->each(function ($nodes) {
+            foreach ($nodes as $node) {
+                $node->parentNode->removeChild($node);
+            }
+        });
 
-        foreach ($crawlerInverse as $elementToRemove) {
-            $parent = $elementToRemove->parentNode;
-            $parent->removeChild($elementToRemove);
-        }
-
-        $crawler->clear();
-        $crawler->add($document);
-        return $crawler->filter('body')->eq(0)->html();
+        return $crawler->html();
     }
 }
